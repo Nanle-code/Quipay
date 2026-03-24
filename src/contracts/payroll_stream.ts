@@ -198,7 +198,7 @@ export async function checkTreasurySolvency(
  * Returns an array of token balances.
  */
 export async function get_vault_balance(
-  vaultContractId: string
+  vaultContractId: string,
 ): Promise<VaultBalance[]> {
   if (!vaultContractId) {
     return [];
@@ -217,9 +217,7 @@ export async function get_vault_balance(
     fee: "100",
     networkPassphrase,
   })
-    .addOperation(
-      contract.call("get_treasury_balance"),
-    )
+    .addOperation(contract.call("get_treasury_balance"))
     .setTimeout(10)
     .build();
 
@@ -251,7 +249,7 @@ export async function get_vault_balance(
  * Returns the total amount owed to all recipients.
  */
 export async function get_total_liability(
-  vaultContractId: string
+  vaultContractId: string,
 ): Promise<string> {
   if (!vaultContractId) {
     return "0";
@@ -270,9 +268,7 @@ export async function get_total_liability(
     fee: "100",
     networkPassphrase,
   })
-    .addOperation(
-      contract.call("get_total_liability"),
-    )
+    .addOperation(contract.call("get_total_liability"))
     .setTimeout(10)
     .build();
 
@@ -305,7 +301,7 @@ export async function get_total_liability(
 export async function get_streams_by_employer(
   employerAddress: string,
   page: number = 1,
-  limit: number = 50
+  limit: number = 50,
 ): Promise<StreamData[]> {
   if (!PAYROLL_STREAM_CONTRACT_ID) {
     throw new Error(
@@ -354,6 +350,54 @@ export async function get_streams_by_employer(
     console.warn("Failed to parse stream data:", error);
     return [];
   }
+}
+
+// ─── getWithdrawable ─────────────────────────────────────────────────────────
+
+/**
+ * Calls `get_withdrawable` on the PayrollStream contract to get the
+ * amount currently available for the worker to withdraw.
+ *
+ * Returns the amount as a bigint, or null if the stream is not found.
+ */
+export async function getWithdrawable(
+  streamId: bigint,
+): Promise<bigint | null> {
+  if (!PAYROLL_STREAM_CONTRACT_ID) return null;
+
+  const server = getRpcServer();
+  const contract = new Contract(PAYROLL_STREAM_CONTRACT_ID);
+
+  // Use the contract ID itself as a dummy source for simulation
+  const dummySource = await server
+    .getAccount(PAYROLL_STREAM_CONTRACT_ID)
+    .catch(() => null);
+  if (!dummySource) return null;
+
+  const tx = new TransactionBuilder(dummySource, {
+    fee: "100",
+    networkPassphrase,
+  })
+    .addOperation(
+      contract.call(
+        "get_withdrawable",
+        nativeToScVal(streamId, { type: "u64" }),
+      ),
+    )
+    .setTimeout(10)
+    .build();
+
+  const response = await server.simulateTransaction(tx);
+
+  if (SorobanRpc.Api.isSimulationError(response)) {
+    return null;
+  }
+
+  const result = (response as SorobanRpc.Api.SimulateTransactionSuccessResponse)
+    .result?.retval;
+  if (!result) return null;
+
+  return scValToNative(result) as bigint | null;
 }
 
 // ─── submitAndAwaitTx ─────────────────────────────────────────────────────────
