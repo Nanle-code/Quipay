@@ -9,6 +9,7 @@
  * • CreateStreamParams          – parameter type for create_stream
  * • buildCreateStreamTx         – simulate + build a create_stream XDR
  * • checkTreasurySolvency       – reads PayrollVault.check_solvency
+ * • getWithdrawable             – reads the withdrawable amount for a stream
  * • submitAndAwaitTx            – submit a signed XDR and wait for confirmation
  */
 
