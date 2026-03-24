@@ -33,6 +33,25 @@ export const PAYROLL_STREAM_CONTRACT_ID: string =
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
+export interface StreamData {
+  id: number;
+  employer: string;
+  worker: string;
+  token: string;
+  rate: bigint;
+  amount: bigint;
+  start_ts: number;
+  end_ts: number;
+  created_at: number;
+  is_active: boolean;
+  total_withdrawn: bigint;
+}
+
+export interface VaultBalance {
+  token_symbol: string;
+  balance: string;
+}
+
 export interface CreateStreamParams {
   /** Employer's Stellar public key (G…) */
   employer: string;
@@ -170,6 +189,171 @@ export async function checkTreasurySolvency(
   if (!result) return true;
 
   return scValToNative(result) as boolean;
+}
+
+// ─── get_vault_balance ───────────────────────────────────────────────────────────
+
+/**
+ * Queries the treasury balance from the PayrollVault contract.
+ * Returns an array of token balances.
+ */
+export async function get_vault_balance(
+  vaultContractId: string
+): Promise<VaultBalance[]> {
+  if (!vaultContractId) {
+    return [];
+  }
+
+  const server = getRpcServer();
+  const contract = new Contract(vaultContractId);
+
+  // We use a dummy source account for read-only simulation
+  const dummySource = await server
+    .getAccount(vaultContractId)
+    .catch(() => null);
+  if (!dummySource) return [];
+
+  const tx = new TransactionBuilder(dummySource, {
+    fee: "100",
+    networkPassphrase,
+  })
+    .addOperation(
+      contract.call("get_treasury_balance"),
+    )
+    .setTimeout(10)
+    .build();
+
+  const response = await server.simulateTransaction(tx);
+
+  if (SorobanRpc.Api.isSimulationError(response)) {
+    console.warn("get_vault_balance simulation error:", response.error);
+    return [];
+  }
+
+  const result = (response as SorobanRpc.Api.SimulateTransactionSuccessResponse)
+    .result?.retval;
+  if (!result) return [];
+
+  try {
+    const balances = scValToNative(result);
+    // Convert to expected format - assuming it returns a map of token -> balance
+    return Array.isArray(balances) ? balances : [];
+  } catch (error) {
+    console.warn("Failed to parse vault balance:", error);
+    return [];
+  }
+}
+
+// ─── get_total_liability ─────────────────────────────────────────────────────────
+
+/**
+ * Queries the total liability from the PayrollVault contract.
+ * Returns the total amount owed to all recipients.
+ */
+export async function get_total_liability(
+  vaultContractId: string
+): Promise<string> {
+  if (!vaultContractId) {
+    return "0";
+  }
+
+  const server = getRpcServer();
+  const contract = new Contract(vaultContractId);
+
+  // We use a dummy source account for read-only simulation
+  const dummySource = await server
+    .getAccount(vaultContractId)
+    .catch(() => null);
+  if (!dummySource) return "0";
+
+  const tx = new TransactionBuilder(dummySource, {
+    fee: "100",
+    networkPassphrase,
+  })
+    .addOperation(
+      contract.call("get_total_liability"),
+    )
+    .setTimeout(10)
+    .build();
+
+  const response = await server.simulateTransaction(tx);
+
+  if (SorobanRpc.Api.isSimulationError(response)) {
+    console.warn("get_total_liability simulation error:", response.error);
+    return "0";
+  }
+
+  const result = (response as SorobanRpc.Api.SimulateTransactionSuccessResponse)
+    .result?.retval;
+  if (!result) return "0";
+
+  try {
+    const liability = scValToNative(result) as bigint;
+    return liability.toString();
+  } catch (error) {
+    console.warn("Failed to parse total liability:", error);
+    return "0";
+  }
+}
+
+// ─── get_streams_by_employer ─────────────────────────────────────────────────────
+
+/**
+ * Queries all streams created by a specific employer address.
+ * Returns an array of stream data with pagination support.
+ */
+export async function get_streams_by_employer(
+  employerAddress: string,
+  page: number = 1,
+  limit: number = 50
+): Promise<StreamData[]> {
+  if (!PAYROLL_STREAM_CONTRACT_ID) {
+    throw new Error(
+      "VITE_PAYROLL_STREAM_CONTRACT_ID is not set in environment variables.",
+    );
+  }
+
+  const server = getRpcServer();
+  const contract = new Contract(PAYROLL_STREAM_CONTRACT_ID);
+
+  // We use a dummy source account for read-only simulation
+  const dummySource = await server
+    .getAccount(employerAddress)
+    .catch(() => null);
+  if (!dummySource) return [];
+
+  const tx = new TransactionBuilder(dummySource, {
+    fee: "100",
+    networkPassphrase,
+  })
+    .addOperation(
+      contract.call(
+        "get_streams_by_employer",
+        new Address(employerAddress).toScVal(),
+        nativeToScVal(BigInt(page), { type: "u32" }),
+        nativeToScVal(BigInt(limit), { type: "u32" }),
+      ),
+    )
+    .setTimeout(10)
+    .build();
+
+  const response = await server.simulateTransaction(tx);
+
+  if (SorobanRpc.Api.isSimulationError(response)) {
+    console.warn("get_streams_by_employer simulation error:", response.error);
+    return [];
+  }
+
+  const result = (response as SorobanRpc.Api.SimulateTransactionSuccessResponse)
+    .result?.retval;
+  if (!result) return [];
+
+  try {
+    return scValToNative(result) as StreamData[];
+  } catch (error) {
+    console.warn("Failed to parse stream data:", error);
+    return [];
+  }
 }
 
 // ─── submitAndAwaitTx ─────────────────────────────────────────────────────────

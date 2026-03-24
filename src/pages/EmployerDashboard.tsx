@@ -2,6 +2,7 @@ import React from "react";
 import { Layout, Text, Button } from "@stellar/design-system";
 import { useTranslation } from "react-i18next";
 import { usePayroll } from "../hooks/usePayroll";
+import { useWallet } from "../hooks/useWallet";
 import { useNavigate } from "react-router-dom";
 import { SeoHelmet } from "../components/seo/SeoHelmet";
 import WithdrawButton from "../components/WithdrawButton";
@@ -10,6 +11,17 @@ import { SkeletonCard, SkeletonRow } from "../components/Loading";
 
 const EmployerDashboard: React.FC = () => {
   const { t } = useTranslation();
+  const { address } = useWallet();
+  const navigate = useNavigate();
+  const {
+    treasuryBalances,
+    totalLiabilities,
+    activeStreamsCount,
+    activeStreams,
+    isLoading,
+    error,
+  } = usePayroll(address);
+
   const tw = {
     dashboardGrid:
       "mb-[30px] grid grid-cols-[repeat(auto-fit,minmax(250px,1fr))] gap-5 max-[768px]:grid-cols-1 max-[768px]:gap-4",
@@ -24,18 +36,37 @@ const EmployerDashboard: React.FC = () => {
     streamItem:
       "flex items-center justify-between gap-3.5 rounded-md border border-[var(--sds-color-neutral-border)] bg-[var(--sds-color-background-primary)] p-[15px] max-[768px]:flex-col max-[768px]:items-stretch max-[768px]:gap-3 max-[768px]:p-4",
   };
-  const {
-    treasuryBalances,
-    totalLiabilities,
-    activeStreamsCount,
-    activeStreams,
-    isLoading,
-  } = usePayroll();
-  const navigate = useNavigate();
 
   const seoDescription = isLoading
     ? t("dashboard.loading_description")
     : t("dashboard.seo_description", { activeStreamsCount, totalLiabilities });
+
+  if (error) {
+    return (
+      <Layout.Content>
+        <Layout.Inset>
+          <Text as="h1" size="xl" weight="medium">
+            {t("dashboard.title")}
+          </Text>
+          <div className={tw.card}>
+            <Text as="h2" size="md" weight="semi-bold">
+              Error Loading Data
+            </Text>
+            <Text as="p" size="sm">
+              {error}
+            </Text>
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={() => window.location.reload()}
+            >
+              Retry
+            </Button>
+          </div>
+        </Layout.Inset>
+      </Layout.Content>
+    );
+  }
 
   if (isLoading) {
     return (
