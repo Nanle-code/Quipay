@@ -14,6 +14,7 @@ import type {
   MonthlySummary,
   DepartmentBreakdown,
 } from "../types/reports";
+import type { ContractStream } from "../contracts/payroll_stream";
 
 /* ------------------------------------------------------------------ */
 /*  Helpers                                                           */
@@ -99,6 +100,68 @@ export function exportTransactionsCSV(
   const csv = [headers.join(","), ...rows].join("\n");
   const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
   triggerDownload(blob, filename);
+}
+
+export function exportPayrollStreamsCSV(
+  streams: { stream: ContractStream; streamId: string }[],
+  filename?: string,
+) {
+  const today = new Date().toISOString().split("T")[0];
+  const defaultFilename = `quipay-report-${today}.csv`;
+  const finalFilename = filename || defaultFilename;
+
+  const headers = [
+    "worker address",
+    "stream ID",
+    "amount",
+    "start date",
+    "end date",
+    "status",
+    "withdrawn",
+  ];
+
+  const escapeCSV = (val: string | number): string => {
+    const str = String(val);
+    if (str.includes(",") || str.includes('"') || str.includes("\n")) {
+      return `"${str.replace(/"/g, '""')}"`;
+    }
+    return str;
+  };
+
+  const formatStatus = (status: number): string => {
+    switch (status) {
+      case 0:
+        return "active";
+      case 1:
+        return "canceled";
+      case 2:
+        return "completed";
+      default:
+        return "unknown";
+    }
+  };
+
+  const formatDate = (timestamp: bigint): string => {
+    return new Date(Number(timestamp) * 1000).toISOString().split("T")[0];
+  };
+
+  const rows = streams.map(({ stream, streamId }) =>
+    [
+      stream.worker,
+      streamId,
+      (Number(stream.total_amount) / 1e7).toFixed(7),
+      formatDate(stream.start_ts),
+      formatDate(stream.end_ts),
+      formatStatus(stream.status),
+      (Number(stream.withdrawn_amount) / 1e7).toFixed(7),
+    ]
+      .map(escapeCSV)
+      .join(","),
+  );
+
+  const csv = [headers.join(","), ...rows].join("\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  triggerDownload(blob, finalFilename);
 }
 
 /* ------------------------------------------------------------------ */
