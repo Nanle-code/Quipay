@@ -178,24 +178,22 @@ const Reports: React.FC = () => {
 
   const handlePayrollStreamsCSVExport = () => {
     try {
-      // Convert streams to the format expected by the CSV export function
+      // Convert streams to the format expected by CSV export function
       const payrollStreams = streams.map((stream) => ({
         streamId: stream.id,
-        stream: {
-          worker: stream.employeeAddress,
-          total_amount: BigInt(parseFloat(stream.totalAmount) * 1e7),
-          withdrawn_amount: BigInt(parseFloat(stream.totalStreamed) * 1e7),
-          start_ts: BigInt(
-            Math.floor(new Date(stream.startDate).getTime() / 1000),
-          ),
-          end_ts: BigInt(Math.floor(new Date(stream.endDate).getTime() / 1000)),
-          status:
-            stream.status === "active"
-              ? 0
-              : stream.status === "cancelled"
-                ? 1
-                : 2,
-        },
+        worker: stream.employeeAddress,
+        total_amount: BigInt(parseFloat(stream.totalAmount) * 1e7),
+        withdrawn_amount: BigInt(parseFloat(stream.totalStreamed) * 1e7),
+        start_ts: BigInt(
+          Math.floor(new Date(stream.startDate).getTime() / 1000),
+        ),
+        end_ts: BigInt(Math.floor(new Date(stream.endDate).getTime() / 1000)),
+        status:
+          stream.status === "active"
+            ? 0
+            : stream.status === "cancelled"
+              ? 1
+              : 2,
       }));
 
       exportPayrollStreamsCSV(payrollStreams);

@@ -14,7 +14,6 @@ import type {
   MonthlySummary,
   DepartmentBreakdown,
 } from "../types/reports";
-import type { ContractStream } from "../contracts/payroll_stream";
 
 /* ------------------------------------------------------------------ */
 /*  Helpers                                                           */
@@ -103,7 +102,15 @@ export function exportTransactionsCSV(
 }
 
 export function exportPayrollStreamsCSV(
-  streams: { stream: ContractStream; streamId: string }[],
+  streams: {
+    streamId: string;
+    worker: string;
+    total_amount: bigint;
+    withdrawn_amount: bigint;
+    start_ts: bigint;
+    end_ts: bigint;
+    status: number;
+  }[],
   filename?: string,
 ) {
   const today = new Date().toISOString().split("T")[0];
@@ -145,10 +152,10 @@ export function exportPayrollStreamsCSV(
     return new Date(Number(timestamp) * 1000).toISOString().split("T")[0];
   };
 
-  const rows = streams.map(({ stream, streamId }) =>
+  const rows = streams.map((stream) =>
     [
       stream.worker,
-      streamId,
+      stream.streamId,
       (Number(stream.total_amount) / 1e7).toFixed(7),
       formatDate(stream.start_ts),
       formatDate(stream.end_ts),
